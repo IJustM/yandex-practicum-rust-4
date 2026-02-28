@@ -1,0 +1,6 @@
+[workspace]
+resolver = "3"
+members = ["crates/blur_plugin","crates/image_processor", "crates/mirror_plugin"]
+
+[workspace.dependencies]
+image= "0.25.9"
