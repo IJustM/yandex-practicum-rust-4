@@ -7,8 +7,8 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 struct BlurParams {
-    radius: i32,
-    iterations: i32,
+    radius: u32,
+    iterations: u32,
 }
 
 #[unsafe(no_mangle)]
@@ -20,15 +20,21 @@ pub extern "C" fn process_image(
 ) -> RResult<RVec<u8>, RString> {
     let mut output = pixels.clone();
 
-    let width = width as i32;
-    let height = height as i32;
-
     // Десериализуем JSON параметры
     let BlurParams { radius, iterations } =
         match serde_json::from_str::<BlurParams>(params.as_str()) {
             Ok(p) => p,
-            Err(_) => return RErr(RString::from("Ошибка JSON парсинга параметров")),
+            Err(e) => {
+                return RErr(RString::from(format!(
+                    "Ошибка JSON парсинга параметров: {}",
+                    e
+                )));
+            }
         };
+
+    let width = width as i32;
+    let height = height as i32;
+    let radius = radius as i32;
 
     // Повторяет указанное количество раз
     for _ in 0..iterations {
@@ -70,4 +76,5 @@ pub extern "C" fn process_image(
     ROk(output)
 }
 
+// Проверка типизации
 const _: ProcessImageFn = process_image;
