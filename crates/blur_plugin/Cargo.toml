@@ -7,4 +7,8 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
+image_processor_plugin = { path = "../image_processor_plugin" }
+abi_stable.workspace = true
 image.workspace = true
+serde.workspace = true
+serde_json.workspace = true
