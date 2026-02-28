@@ -14,9 +14,9 @@
 
 ```bash
 cargo run -p image_processor -- \
-    --input=input_file.png \
-    --output=output_file.png \
+    --input=images/input_file.png \
+    --output=images/output_file.png \
     --plugin=blur \
-    --params=path_to_params \
-    --plugin-path=path_to_plugin_folder
+    --params=images/blur.txt \
+    --plugin-path=target/plugins/debug
 ```
