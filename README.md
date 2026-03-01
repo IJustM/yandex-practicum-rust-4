@@ -29,7 +29,7 @@ cargo run -p image_processor -- \
 
 Параметры (при больших значениях падает производительность из-за выбранного алгоритма):
 
-```json
+```json5
 {
     "radius": 2,    // u32; Радиус размытия
     "iterations": 2 // u32; Количество итераций
@@ -40,7 +40,7 @@ cargo run -p image_processor -- \
 
 Параметры:
 
-```json
+```json5
 {
     "horizontal": true, // bool; Отобразить по горизонтали
     "vertical": true    // bool; Отобразить по вертикали
