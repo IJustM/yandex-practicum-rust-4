@@ -75,5 +75,7 @@ fn main() -> anyhow::Result<()> {
         .save(&output)
         .with_context(|| format!("Ошибка сохранения output файла по пути {}", output))?;
 
+    println!("Изображение успешно обработано! Результат: {}", output);
+
     Ok(())
 }

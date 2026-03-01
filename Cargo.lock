@@ -764,6 +764,8 @@ dependencies = [
  "abi_stable",
  "image",
  "image_processor_plugin",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
