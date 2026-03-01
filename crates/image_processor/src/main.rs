@@ -1,4 +1,4 @@
-use std::{fs, io::Read, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 use anyhow::Context;
 use clap::Parser;

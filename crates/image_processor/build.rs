@@ -11,7 +11,7 @@ fn main() {
         println!("cargo:rerun-if-changed=../{}/src/lib.rs", plugin_name);
 
         Command::new("cargo")
-            .args(&[
+            .args([
                 "build",
                 "-p",
                 &plugin_name,
