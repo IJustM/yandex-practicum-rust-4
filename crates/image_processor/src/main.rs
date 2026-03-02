@@ -55,21 +55,23 @@ fn main() -> anyhow::Result<()> {
     let params = fs::read_to_string(&params_path)
         .with_context(|| format!("Ошибка чтения файла параметров по пути {}", params_path))?;
 
-    let pixels_out = unsafe {
+    let img_buffer = unsafe {
         let lib = Library::new(lib_path)?;
 
         let process_image: Symbol<ProcessImageFn> = lib.get(b"process_image")?;
 
-        process_image(width, height, pixels.into(), params.into()).clone()
+        let pixels_out = process_image(width, height, pixels.into(), params.into());
+
+        let pixels_out = pixels_out
+            .into_result()
+            .map_err(|e| anyhow::anyhow!("{}", e))
+            .with_context(|| format!("Ошибка при выполнении алгоритма в плагине {}", plugin))?;
+
+        let img_buffer: RgbaImage = ImageBuffer::from_raw(width, height, pixels_out.into())
+            .context("Ошибка преобразования данных в изображение после обработки")?;
+
+        img_buffer
     };
-
-    let pixels_out = pixels_out
-        .into_result()
-        .map_err(|e| anyhow::anyhow!("{}", e))
-        .with_context(|| format!("Ошибка при выполнении алгоритма в плагине {}", plugin))?;
-
-    let img_buffer: RgbaImage = ImageBuffer::from_raw(width, height, pixels_out.into())
-        .context("Ошибка преобразования данных в изображение после обработки")?;
 
     img_buffer
         .save(&output)
