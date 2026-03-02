@@ -2,7 +2,7 @@ use abi_stable::std_types::{
     RResult::{self, RErr, ROk},
     RString, RVec,
 };
-use image_processor_plugin::ProcessImageFn;
+use image_processor_plugin::{ProcessImageFn, try_to_i32};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -34,8 +34,8 @@ pub extern "C" fn process_image(
         }
     };
 
-    let width = width as i32;
-    let height = height as i32;
+    let width = try_to_i32!(width, "width");
+    let height = try_to_i32!(height, "height");
 
     if horizontal {
         for y in 0..height {
@@ -66,3 +66,136 @@ pub extern "C" fn process_image(
 
 // Проверка типизации
 const _: ProcessImageFn = process_image;
+
+#[cfg(test)]
+mod tests_blur_plugin {
+    use abi_stable::std_types::{RResult, RString, RVec};
+
+    use crate::process_image;
+
+    #[test]
+    fn test_json_parse() {
+        fn assert_error(json: &str, error: &str) {
+            let res = process_image(0, 0, vec![].into(), json.into());
+            assert!(res.is_err());
+            assert_eq!(
+                res.unwrap_err().to_string(),
+                format!("Ошибка JSON парсинга параметров: {}", error)
+            );
+        }
+
+        assert_error("", "EOF while parsing a value at line 1 column 0");
+        assert_error("{}", "missing field `horizontal` at line 1 column 2");
+        assert_error(
+            "{\"horizontal\":true}",
+            "missing field `vertical` at line 1 column 19",
+        );
+        assert_error(
+            "{\"horizontal\":\"a\",\"vertical\":false}",
+            "invalid type: string \"a\", expected a boolean at line 1 column 17",
+        );
+        assert_error(
+            "{\"horizontal\":123,\"vertical\":false}",
+            "invalid type: integer `123`, expected a boolean at line 1 column 17",
+        );
+    }
+
+    #[test]
+    fn test_i32() {
+        fn assert_error(res: RResult<RVec<u8>, RString>, name: &str) {
+            assert!(res.is_err());
+            assert_eq!(
+                res.unwrap_err().to_string(),
+                format!("Ошибка приведения {} к i32", name)
+            );
+        }
+
+        assert_error(
+            process_image(
+                4294967295,
+                1,
+                vec![].into(),
+                "{\"horizontal\":true,\"vertical\":true}".into(),
+            ),
+            "width",
+        );
+        assert_error(
+            process_image(
+                1,
+                4294967295,
+                vec![].into(),
+                "{\"horizontal\":true,\"vertical\":true}".into(),
+            ),
+            "height",
+        );
+    }
+
+    #[test]
+    fn test_success() {
+        let original: Vec<_> = vec![
+            vec![1, 1, 1, 0],
+            vec![2, 2, 2, 0],
+            //
+            vec![3, 3, 3, 0],
+            vec![4, 4, 4, 0],
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+
+        let res = process_image(
+            2,
+            2,
+            original.clone().into(),
+            "{\"horizontal\":false,\"vertical\":false}".into(),
+        );
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), RVec::from(original.clone()));
+
+        let res = process_image(
+            2,
+            2,
+            original.clone().into(),
+            "{\"horizontal\":true,\"vertical\":false}".into(),
+        );
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            RVec::from(
+                vec![
+                    vec![2, 2, 2, 0],
+                    vec![1, 1, 1, 0],
+                    //
+                    vec![4, 4, 4, 0],
+                    vec![3, 3, 3, 0],
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+            )
+        );
+
+        let res = process_image(
+            2,
+            2,
+            original.clone().into(),
+            "{\"horizontal\":false,\"vertical\":true}".into(),
+        );
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            RVec::from(
+                vec![
+                    vec![3, 3, 3, 0],
+                    vec![4, 4, 4, 0],
+                    //
+                    vec![1, 1, 1, 0],
+                    vec![2, 2, 2, 0],
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+            )
+        );
+    }
+}

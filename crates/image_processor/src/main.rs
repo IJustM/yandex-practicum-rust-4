@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
 
         let process_image: Symbol<ProcessImageFn> = lib.get(b"process_image")?;
 
-        process_image(width, height, pixels.into(), params.into())
+        process_image(width, height, pixels.into(), params.into()).clone()
     };
 
     let pixels_out = pixels_out

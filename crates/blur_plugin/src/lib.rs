@@ -2,7 +2,7 @@ use abi_stable::std_types::{
     RResult::{self, RErr, ROk},
     RString, RVec,
 };
-use image_processor_plugin::ProcessImageFn;
+use image_processor_plugin::{ProcessImageFn, try_to_i32};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -32,9 +32,9 @@ pub extern "C" fn process_image(
             }
         };
 
-    let width = width as i32;
-    let height = height as i32;
-    let radius = radius as i32;
+    let width = try_to_i32!(width, "width");
+    let height = try_to_i32!(height, "height");
+    let radius = try_to_i32!(radius, "radius");
 
     // Повторяет указанное количество раз
     for _ in 0..iterations {
@@ -78,3 +78,119 @@ pub extern "C" fn process_image(
 
 // Проверка типизации
 const _: ProcessImageFn = process_image;
+
+#[cfg(test)]
+mod tests_blur_plugin {
+    use abi_stable::std_types::{RResult, RString, RVec};
+
+    use crate::process_image;
+
+    #[test]
+    fn test_json_parse() {
+        fn assert_error(json: &str, error: &str) {
+            let res = process_image(0, 0, vec![].into(), json.into());
+            assert!(res.is_err());
+            assert_eq!(
+                res.unwrap_err().to_string(),
+                format!("Ошибка JSON парсинга параметров: {}", error)
+            );
+        }
+
+        assert_error("", "EOF while parsing a value at line 1 column 0");
+        assert_error("{}", "missing field `radius` at line 1 column 2");
+        assert_error(
+            "{\"radius\":1}",
+            "missing field `iterations` at line 1 column 12",
+        );
+        assert_error(
+            "{\"radius\":\"a\",\"iterations\":1}",
+            "invalid type: string \"a\", expected u32 at line 1 column 13",
+        );
+    }
+
+    #[test]
+    fn test_i32() {
+        fn assert_error(res: RResult<RVec<u8>, RString>, name: &str) {
+            assert!(res.is_err());
+            assert_eq!(
+                res.unwrap_err().to_string(),
+                format!("Ошибка приведения {} к i32", name)
+            );
+        }
+
+        assert_error(
+            process_image(
+                4294967295,
+                1,
+                vec![].into(),
+                "{\"radius\":1,\"iterations\":1}".into(),
+            ),
+            "width",
+        );
+        assert_error(
+            process_image(
+                1,
+                4294967295,
+                vec![].into(),
+                "{\"radius\":1,\"iterations\":1}".into(),
+            ),
+            "height",
+        );
+        assert_error(
+            process_image(
+                1,
+                1,
+                vec![].into(),
+                "{\"radius\":4294967295,\"iterations\":1}".into(),
+            ),
+            "radius",
+        );
+    }
+
+    #[test]
+    fn test_success() {
+        let res = process_image(
+            3,
+            3,
+            vec![
+                vec![0, 0, 0, 0],
+                vec![0, 0, 0, 0],
+                vec![0, 0, 0, 0],
+                //
+                vec![0, 0, 0, 0],
+                vec![0, 0, 0, 0],
+                vec![0, 0, 0, 0],
+                //
+                vec![0, 0, 0, 0],
+                vec![0, 0, 0, 0],
+                vec![255, 255, 255, 0],
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+            "{\"radius\":1,\"iterations\":1}".into(),
+        );
+        assert!(res.is_ok());
+        assert_eq!(
+            res.unwrap(),
+            RVec::from(
+                vec![
+                    vec![0, 0, 0, 0],
+                    vec![0, 0, 0, 0],
+                    vec![0, 0, 0, 0],
+                    //
+                    vec![0, 0, 0, 0],
+                    vec![28, 28, 28, 0],
+                    vec![42, 42, 42, 0],
+                    //
+                    vec![0, 0, 0, 0],
+                    vec![42, 42, 42, 0],
+                    vec![63, 63, 63, 0],
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+            )
+        );
+    }
+}
